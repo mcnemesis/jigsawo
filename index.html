@@ -287,7 +287,7 @@ span#app-version {
 </div>
 
 <div id="aboutModal">
-  <img id="aboutImg" alt="About JIGSAWO" src="artworks/logo_brand.jpg">
+  <img id="aboutImg" alt="About JIGSAWO" src="artworks/logo_about.jpg">
   <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to return to game</p>
 </div>
 
@@ -1007,6 +1007,12 @@ if (sessionStorage.getItem('splashShown')) {
   initPuzzle();
 })();
 </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js');
+    });
+  }
+</script>
 </body>
 </html>
-
