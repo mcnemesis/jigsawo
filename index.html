@@ -203,7 +203,20 @@ span#app-version {
 	cursor: pointer;
 }
 
-  #aboutModal, #promoModal {
+#splashModal {
+	opacity: 1;
+	visibility: visible;
+	transition: opacity 0.6s ease-out, visibility 0.6s ease-out;opacity: 1;
+}
+
+/* State applied via JS to trigger the fade */
+#splashModal.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none; /* Ensures clicks pass through immediately to the puzzle */
+}
+
+#aboutModal, #promoModal, #splashModal {
     display: none;
     position: fixed;
     inset: 84px 0 0 0;
@@ -214,10 +227,12 @@ span#app-version {
     flex-direction: column;
     padding: 20px;
   }
-  #aboutModal.active, #promoModal.active {
+
+  #aboutModal.active, #promoModal.active, #splashModal.active  {
     display: flex;
   }
-  #aboutImg, #promoImg {
+
+  #aboutImg, #promoImg, #splashImg  {
     max-width: 90%;
     max-height: 75%;
     border-radius: 8px;
@@ -281,6 +296,11 @@ span#app-version {
   <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to return to game</p>
 </div>
 
+<div id="splashModal">
+  <img id="splashImg" alt="Welcome to JIGSAWO" src="artworks/splashscreen.jpg">
+  <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Welcome to JIGSAWO!</p>
+</div>
+
 <canvas id="board"></canvas>
 
 <script>
@@ -299,6 +319,7 @@ span#app-version {
   const previewModal = document.getElementById('previewModal');
   const aboutModal = document.getElementById('aboutModal');
   const promoModal = document.getElementById('promoModal');
+  const splashModal = document.getElementById('splashModal');
   const previewImg = document.getElementById('previewImg');
   const winBanner = document.getElementById('winBanner');
   const totalScoreEl = document.getElementById('totalScoreEl');
@@ -950,11 +971,38 @@ span#app-version {
     promoModal.classList.remove('active');
   });
 
+  splashModal.addEventListener('click', () => {
+    splashModal.classList.remove('active');
+  });
+
   window.addEventListener('resize', () => {
     if (Math.abs(window.innerWidth - width) > 80) {
       initPuzzle();
     }
   });
+
+// especially for PWAs, so we only show the splashscreen once per session
+if (sessionStorage.getItem('splashShown')) {
+    splashModal.classList.remove('active');
+} else {
+  sessionStorage.setItem('splashShown', 'true');
+  // Run the window load fade-out code above
+	window.addEventListener('load', () => {
+	  const splash = document.getElementById('splashModal');
+	  if (!splash) return;
+
+    splashModal.classList.toggle('active');
+	  // Keep the graphic visible for 1.2 seconds before fading
+	  setTimeout(() => {
+		splash.classList.add('fade-out');
+
+		// Clean up from the DOM after the 0.6s CSS transition ends
+		splash.addEventListener('transitionend', () => {
+		  splash.remove();
+		}, { once: true });
+	  }, 1200);
+	});
+}
 
   initPuzzle();
 })();
