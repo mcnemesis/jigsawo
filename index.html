@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Procedural Fractal Jigsaw</title>
+<style>
+  :root {
+    --bg: #12141d;
+    --panel: #1c202e;
+    --panel-2: #252b3d;
+    --accent: #6c5ce7;
+    --accent-hover: #8174f2;
+    --gold: #fdcb6e;
+    --mint: #00cec9;
+    --danger: #ff7675;
+    --text: #f1f2f6;
+    --muted: #a4b0be;
+  }
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--panel);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+    display: flex;
+    flex-direction: column;
+  }
+  #toolbar {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  #scoreboard {
+    height: 34px;
+    background: var(--panel-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 8px;
+  }
+  .score-metrics {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .metric strong {
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .metric.live strong {
+    color: var(--mint);
+  }
+  .metric.time span {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+  }
+  select, button {
+    background: #2a3042;
+    color: var(--text);
+    border: 1px solid #3d455c;
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+  }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  button.primary:active {
+    background: var(--accent-hover);
+  }
+  button.reset-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    background: rgba(255, 118, 117, 0.14);
+    border-color: rgba(255, 118, 117, 0.45);
+    color: #ff9f9d;
+  }
+  button.reset-btn.armed {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #12141d;
+  }
+  #board {
+    position: fixed;
+    top: 84px;
+    left: 0;
+    width: 100%;
+    height: calc(100% - 84px);
+    display: block;
+    touch-action: none;
+  }
+  #previewModal {
+    display: none;
+    position: fixed;
+    inset: 84px 0 0 0;
+    background: rgba(18, 20, 29, 0.92);
+    z-index: 90;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+  }
+  #previewModal.active {
+    display: flex;
+  }
+  #previewImg {
+    max-width: 90%;
+    max-height: 75%;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    border: 2px solid #3d455c;
+  }
+  #winBanner {
+    display: none;
+    position: fixed;
+    top: 98px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #00b894, #00cec9);
+    color: #0b1a17;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-weight: 800;
+    font-size: 13px;
+    box-shadow: 0 6px 20px rgba(0, 206, 201, 0.4);
+    z-index: 95;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="toolbar">
+    <div class="controls">
+      <select id="artStyle" title="Art Generator">
+        <option value="julia">Julia Fractal</option>
+        <option value="kaleidoscope">Geometric Mandala</option>
+        <option value="mandelbrot">Mandelbrot Zoom</option>
+        <option value="sierpinski">Sierpinski Prism</option>
+      </select>
+      <select id="gridSize" title="Difficulty">
+        <option value="3">3×3 (9)</option>
+        <option value="4" selected>4×4 (16)</option>
+        <option value="5">5×5 (25)</option>
+        <option value="6">6×6 (36)</option>
+      </select>
+    </div>
+    <div class="controls">
+      <button id="previewBtn">Peek</button>
+      <button id="newBtn" class="primary">New</button>
+    </div>
+  </div>
+  <div id="scoreboard">
+    <div class="score-metrics">
+      <div class="metric">Total: <strong id="totalScoreEl">0</strong></div>
+      <div class="metric live">Reward: <strong id="liveRewardEl">150</strong></div>
+      <div class="metric time">Time: <span id="elapsedEl">0s</span></div>
+    </div>
+    <button id="resetScoreBtn" class="reset-btn" title="Reset total score to 0">Reset Score</button>
+  </div>
+</div>
+
+<div id="winBanner"></div>
+
+<div id="previewModal">
+  <img id="previewImg" alt="Target Fractal Preview">
+  <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to close preview</p>
+</div>
+
+<canvas id="board"></canvas>
+
+<script>
+(() => {
+  const HUD_HEIGHT = 84;
+  const STORAGE_KEY = 'fractal_jigsaw_total_score_v1';
+
+  const board = document.getElementById('board');
+  const ctx = board.getContext('2d');
+  const artSelect = document.getElementById('artStyle');
+  const gridSelect = document.getElementById('gridSize');
+  const newBtn = document.getElementById('newBtn');
+  const previewBtn = document.getElementById('previewBtn');
+  const previewModal = document.getElementById('previewModal');
+  const previewImg = document.getElementById('previewImg');
+  const winBanner = document.getElementById('winBanner');
+  const totalScoreEl = document.getElementById('totalScoreEl');
+  const liveRewardEl = document.getElementById('liveRewardEl');
+  const elapsedEl = document.getElementById('elapsedEl');
+  const resetScoreBtn = document.getElementById('resetScoreBtn');
+
+  const artCanvas = document.createElement('canvas');
+  const artCtx = artCanvas.getContext('2d');
+
+  let width = 0, height = 0;
+  let puzzleSize = 300;
+  let boardOriginX = 0, boardOriginY = 0;
+  let rows = 4, cols = 4;
+  let pieces = [];
+  let activeGroup = null;
+  let activeAnchor = null;
+  let dragOffsetX = 0, dragOffsetY = 0;
+  let isSolved = false;
+
+  // Scoring & timer state
+  let totalScore = loadTotalScore();
+  let baseReward = 150;
+  let currentReward = 150;
+  let elapsedSeconds = 0;
+  let countdownTimerId = null;
+  let resetConfirmTimeout = null;
+  let audioCtx = null;
+
+  function loadTotalScore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = parseInt(raw, 10);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function saveTotalScore(val) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(val));
+    } catch (_) {
+      // Ignore storage quota / private mode errors
+    }
+  }
+
+  function getBaseRewardForGrid(size) {
+    // Scales gently with piece count while keeping 3x3 at 100 pts
+    const table = { 3: 100, 4: 150, 5: 200, 6: 250 };
+    return table[size] || 100;
+  }
+
+  function computeCountdownReward(base, secs, grid) {
+    // Decay rate scales slightly with grid complexity so larger puzzles give fair time
+    const decayPerSec = { 3: 1.5, 4: 1.25, 5: 1.0, 6: 0.85 }[grid] || 1.25;
+    const minReward = Math.max(10, Math.round(base * 0.15));
+    const remaining = Math.round(base - secs * decayPerSec);
+    return Math.max(minReward, remaining);
+  }
+
+  function updateScoreboardUI() {
+    totalScoreEl.textContent = totalScore;
+    liveRewardEl.textContent = currentReward;
+    elapsedEl.textContent = `${elapsedSeconds}s`;
+  }
+
+  function startCountdown() {
+    stopCountdown();
+    elapsedSeconds = 0;
+    currentReward = baseReward;
+    updateScoreboardUI();
+
+    countdownTimerId = setInterval(() => {
+      if (isSolved) return;
+      elapsedSeconds += 1;
+      currentReward = computeCountdownReward(baseReward, elapsedSeconds, rows);
+      updateScoreboardUI();
+    }, 1000);
+  }
+
+  function stopCountdown() {
+    if (countdownTimerId !== null) {
+      clearInterval(countdownTimerId);
+      countdownTimerId = null;
+    }
+  }
+
+  // Haptic vibration + offline Web Audio chime on win
+  function triggerWinFeedback() {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate([80, 50, 140]);
+      }
+    } catch (_) {
+      // Vibration unavailable or blocked
+    }
+
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!audioCtx) audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const now = audioCtx.currentTime;
+      // Two-note pleasant ascending chime
+      const notes = [587.33, 880]; // D5 -> A5
+      notes.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        const start = now + idx * 0.13;
+        const duration = idx === 0 ? 0.14 : 0.35;
+
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.02);
+      });
+    } catch (_) {
+      // Web Audio blocked or unsupported
+    }
+  }
+
+  // Color palette generator (cosine-based smooth gradients)
+  function createPalette() {
+    const a = [0.5, 0.5, 0.5];
+    const b = [0.5, 0.5, 0.5];
+    const c = [1.0, 1.0, 1.0];
+    const d = [Math.random(), Math.random(), Math.random()];
+    return (t) => {
+      const r = Math.floor(255 * (a[0] + b[0] * Math.cos(6.28318 * (c[0] * t + d[0]))));
+      const g = Math.floor(255 * (a[1] + b[1] * Math.cos(6.28318 * (c[1] * t + d[1]))));
+      const bl = Math.floor(255 * (a[2] + b[2] * Math.cos(6.28318 * (c[2] * t + d[2]))));
+      return [r, g, bl];
+    };
+  }
+
+  // Procedural Art Generators
+  function generateArt(style, size) {
+    artCanvas.width = size;
+    artCanvas.height = size;
+    const palette = createPalette();
+
+    if (style === 'julia' || style === 'mandelbrot') {
+      const imgData = artCtx.createImageData(size, size);
+      const data = imgData.data;
+      const maxIter = 90;
+
+      const presets = [
+        [-0.7269, 0.1889],
+        [-0.8, 0.156],
+        [0.285, 0.01],
+        [-0.4, 0.6],
+        [-0.70176, -0.3842]
+      ];
+      const pick = presets[Math.floor(Math.random() * presets.length)];
+      const cRe = pick[0] + (Math.random() - 0.5) * 0.04;
+      const cIm = pick[1] + (Math.random() - 0.5) * 0.04;
+
+      const mCenters = [
+        [-0.743643887, 0.131825904, 0.015],
+        [-0.16, 1.0405, 0.04],
+        [-1.25066, 0.02012, 0.03],
+        [-0.7453, 0.1127, 0.02]
+      ];
+      const mPick = mCenters[Math.floor(Math.random() * mCenters.length)];
+
+      for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) {
+          let zx, zy, cx, cy;
+          if (style === 'julia') {
+            zx = (px / size - 0.5) * 3.1;
+            zy = (py / size - 0.5) * 3.1;
+            cx = cRe;
+            cy = cIm;
+          } else {
+            cx = mPick[0] + (px / size - 0.5) * mPick[2];
+            cy = mPick[1] + (py / size - 0.5) * mPick[2];
+            zx = 0;
+            zy = 0;
+          }
+
+          let iter = 0;
+          while (zx * zx + zy * zy < 4 && iter < maxIter) {
+            const tmp = zx * zx - zy * zy + cx;
+            zy = 2 * zx * zy + cy;
+            zx = tmp;
+            iter++;
+          }
+
+          const idx = (py * size + px) * 4;
+          if (iter === maxIter) {
+            data[idx] = 15;
+            data[idx + 1] = 18;
+            data[idx + 2] = 28;
+          } else {
+            const logZn = Math.log(zx * zx + zy * zy) / 2;
+            const nu = Math.log(logZn / Math.LN2) / Math.LN2;
+            const smooth = (iter + 1 - nu) / maxIter;
+            const [r, g, b] = palette(smooth * 2.5);
+            data[idx] = r;
+            data[idx + 1] = g;
+            data[idx + 2] = b;
+          }
+          data[idx + 3] = 255;
+        }
+      }
+      artCtx.putImageData(imgData, 0, 0);
+    } else if (style === 'kaleidoscope') {
+      artCtx.fillStyle = '#0f121d';
+      artCtx.fillRect(0, 0, size, size);
+      const cx = size / 2;
+      const cy = size / 2;
+      const symmetry = [6, 8, 10, 12][Math.floor(Math.random() * 4)];
+      const layers = 14;
+
+      for (let l = layers; l >= 1; l--) {
+        const radius = (size * 0.48) * (l / layers);
+        const [r, g, b] = palette(l / layers);
+        const [r2, g2, b2] = palette((l + 0.5) / layers);
+        artCtx.fillStyle = `rgb(${r},${g},${b})`;
+        artCtx.strokeStyle = `rgb(${r2},${g2},${b2})`;
+        artCtx.lineWidth = Math.max(1.5, size / 180);
+
+        const petals = symmetry * (l % 2 === 0 ? 1 : 2);
+        const spin = Math.random() * Math.PI;
+        for (let i = 0; i < petals; i++) {
+          const angle = (i / petals) * Math.PI * 2 + spin;
+          artCtx.save();
+          artCtx.translate(cx, cy);
+          artCtx.rotate(angle);
+          artCtx.beginPath();
+          artCtx.moveTo(0, 0);
+          artCtx.quadraticCurveTo(radius * 0.55, radius * 0.35, radius, 0);
+          artCtx.quadraticCurveTo(radius * 0.55, -radius * 0.35, 0, 0);
+          artCtx.fill();
+          artCtx.stroke();
+          artCtx.restore();
+        }
+      }
+    } else if (style === 'sierpinski') {
+      artCtx.fillStyle = '#111420';
+      artCtx.fillRect(0, 0, size, size);
+      const depth = 6;
+      const pad = size * 0.06;
+      const h = (size - pad * 2) * (Math.sqrt(3) / 2);
+      const p1 = { x: size / 2, y: pad };
+      const p2 = { x: pad, y: pad + h };
+      const p3 = { x: size - pad, y: pad + h };
+
+      function drawTri(a, b, c, d, seed) {
+        if (d === 0) {
+          const [r, g, bl] = palette(seed);
+          artCtx.fillStyle = `rgb(${r},${g},${bl})`;
+          artCtx.beginPath();
+          artCtx.moveTo(a.x, a.y);
+          artCtx.lineTo(b.x, b.y);
+          artCtx.lineTo(c.x, c.y);
+          artCtx.closePath();
+          artCtx.fill();
+          return;
+        }
+        const ab = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const bc = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+        const ca = { x: (c.x + a.x) / 2, y: (c.y + a.y) / 2 };
+        drawTri(a, ab, ca, d - 1, seed + 0.13);
+        drawTri(ab, b, bc, d - 1, seed + 0.29);
+        drawTri(ca, bc, c, d - 1, seed + 0.47);
+      }
+      drawTri(p1, p2, p3, depth, Math.random());
+
+      artCtx.strokeStyle = 'rgba(255,255,255,0.22)';
+      artCtx.lineWidth = 2;
+      for (let i = 1; i <= 4; i++) {
+        artCtx.beginPath();
+        artCtx.arc(size / 2, pad + h * 0.66, (size * 0.11) * i, 0, Math.PI * 2);
+        artCtx.stroke();
+      }
+    }
+
+    previewImg.src = artCanvas.toDataURL();
+  }
+
+  function createPiecePath(pw, ph, top, right, bottom, left) {
+    const path = new Path2D();
+    const tabSize = Math.min(pw, ph) * 0.22;
+
+    path.moveTo(0, 0);
+
+    if (top === 0) {
+      path.lineTo(pw, 0);
+    } else {
+      const s = top;
+      path.lineTo(pw * 0.35, 0);
+      path.bezierCurveTo(pw * 0.35, -tabSize * s, pw * 0.65, -tabSize * s, pw * 0.65, 0);
+      path.lineTo(pw, 0);
+    }
+
+    if (right === 0) {
+      path.lineTo(pw, ph);
+    } else {
+      const s = right;
+      path.lineTo(pw, ph * 0.35);
+      path.bezierCurveTo(pw + tabSize * s, ph * 0.35, pw + tabSize * s, ph * 0.65, pw, ph * 0.65);
+      path.lineTo(pw, ph);
+    }
+
+    if (bottom === 0) {
+      path.lineTo(0, ph);
+    } else {
+      const s = bottom;
+      path.lineTo(pw * 0.65, ph);
+      path.bezierCurveTo(pw * 0.65, ph + tabSize * s, pw * 0.35, ph + tabSize * s, pw * 0.35, ph);
+      path.lineTo(0, ph);
+    }
+
+    if (left === 0) {
+      path.lineTo(0, 0);
+    } else {
+      const s = left;
+      path.lineTo(0, ph * 0.65);
+      path.bezierCurveTo(-tabSize * s, ph * 0.65, -tabSize * s, ph * 0.35, 0, ph * 0.35);
+      path.lineTo(0, 0);
+    }
+
+    path.closePath();
+    return path;
+  }
+
+  function initPuzzle() {
+    isSolved = false;
+    activeGroup = null;
+    activeAnchor = null;
+    winBanner.style.display = 'none';
+
+    width = window.innerWidth;
+    height = Math.max(200, window.innerHeight - HUD_HEIGHT);
+    board.width = width;
+    board.height = height;
+
+    rows = parseInt(gridSelect.value, 10);
+    cols = rows;
+    baseReward = getBaseRewardForGrid(rows);
+    startCountdown();
+
+    const minDim = Math.min(width, height);
+    puzzleSize = Math.floor(minDim * (width < height ? 0.66 : 0.60));
+    boardOriginX = Math.floor((width - puzzleSize) / 2);
+    boardOriginY = Math.floor((height - puzzleSize) / 2);
+
+    generateArt(artSelect.value, puzzleSize);
+
+    const pw = puzzleSize / cols;
+    const ph = puzzleSize / rows;
+
+    const hTabs = Array.from({ length: rows + 1 }, () => Array(cols).fill(0));
+    const vTabs = Array.from({ length: rows }, () => Array(cols + 1).fill(0));
+
+    for (let r = 1; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        hTabs[r][c] = Math.random() < 0.5 ? 1 : -1;
+      }
+    }
+    for (let r = 0; r < rows; r++) {
+      for (let c = 1; c < cols; c++) {
+        vTabs[r][c] = Math.random() < 0.5 ? 1 : -1;
+      }
+    }
+
+    pieces = [];
+    let groupCounter = 0;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const top = -hTabs[r][c];
+        const bottom = hTabs[r + 1][c];
+        const left = -vTabs[r][c];
+        const right = vTabs[r][c + 1];
+
+        const path = createPiecePath(pw, ph, top, right, bottom, left);
+
+        let rx, ry;
+        if (width < height) {
+          rx = Math.random() * (width - pw);
+          ry = Math.random() < 0.5
+            ? Math.random() * Math.max(10, boardOriginY - ph * 0.5)
+            : boardOriginY + puzzleSize - ph * 0.3 + Math.random() * Math.max(10, height - (boardOriginY + puzzleSize) - ph * 0.7);
+        } else {
+          ry = Math.random() * (height - ph);
+          rx = Math.random() < 0.5
+            ? Math.random() * Math.max(10, boardOriginX - pw * 0.5)
+            : boardOriginX + puzzleSize - pw * 0.3 + Math.random() * Math.max(10, width - (boardOriginX + puzzleSize) - pw * 0.7);
+        }
+
+        rx = Math.max(8, Math.min(width - pw - 8, rx));
+        ry = Math.max(8, Math.min(height - ph - 8, ry));
+
+        pieces.push({
+          row: r,
+          col: c,
+          pw,
+          ph,
+          x: rx,
+          y: ry,
+          targetX: boardOriginX + c * pw,
+          targetY: boardOriginY + r * ph,
+          path,
+          groupId: groupCounter++
+        });
+      }
+    }
+
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.strokeRect(boardOriginX, boardOriginY, puzzleSize, puzzleSize);
+    ctx.restore();
+
+    const pad = Math.max(pieces[0]?.pw || 0, pieces[0]?.ph || 0) * 0.3;
+
+    for (const p of pieces) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      if (!isSolved) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 4;
+      }
+
+      ctx.clip(p.path);
+      ctx.drawImage(
+        artCanvas,
+        p.col * p.pw - pad,
+        p.row * p.ph - pad,
+        p.pw + pad * 2,
+        p.ph + pad * 2,
+        -pad,
+        -pad,
+        p.pw + pad * 2,
+        p.ph + pad * 2
+      );
+
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = isSolved ? 'rgba(255,255,255,0.08)' : 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke(p.path);
+
+      ctx.restore();
+    }
+  }
+
+  function getPointerPos(e) {
+    const rect = board.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  board.addEventListener('pointerdown', (e) => {
+    if (isSolved) return;
+    const pos = getPointerPos(e);
+
+    for (let i = pieces.length - 1; i >= 0; i--) {
+      const p = pieces[i];
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      const hit = ctx.isPointInPath(p.path, pos.x, pos.y);
+      ctx.restore();
+
+      if (hit) {
+        activeGroup = p.groupId;
+        dragOffsetX = pos.x - p.x;
+        dragOffsetY = pos.y - p.y;
+
+        const groupPieces = pieces.filter(item => item.groupId === activeGroup);
+        const otherPieces = pieces.filter(item => item.groupId !== activeGroup);
+        pieces = [...otherPieces, ...groupPieces];
+
+        activeAnchor = p;
+        board.setPointerCapture(e.pointerId);
+        draw();
+        break;
+      }
+    }
+  });
+
+  board.addEventListener('pointermove', (e) => {
+    if (activeGroup === null || !activeAnchor) return;
+    const pos = getPointerPos(e);
+
+    const newAnchorX = pos.x - dragOffsetX;
+    const newAnchorY = pos.y - dragOffsetY;
+    const dx = newAnchorX - activeAnchor.x;
+    const dy = newAnchorY - activeAnchor.y;
+
+    for (const p of pieces) {
+      if (p.groupId === activeGroup) {
+        p.x += dx;
+        p.y += dy;
+      }
+    }
+    draw();
+  });
+
+  board.addEventListener('pointerup', () => {
+    if (activeGroup === null) return;
+    snapAndMerge();
+    activeGroup = null;
+    activeAnchor = null;
+    draw();
+  });
+
+  function snapAndMerge() {
+    const snapDist = Math.min(pieces[0].pw, pieces[0].ph) * 0.25;
+    const movingPieces = pieces.filter(p => p.groupId === activeGroup);
+
+    for (const mp of movingPieces) {
+      if (Math.hypot(mp.x - mp.targetX, mp.y - mp.targetY) < snapDist) {
+        const dx = mp.targetX - mp.x;
+        const dy = mp.targetY - mp.y;
+        for (const p of movingPieces) {
+          p.x += dx;
+          p.y += dy;
+        }
+        break;
+      }
+    }
+
+    let merged = true;
+    while (merged) {
+      merged = false;
+      const currentCluster = pieces.filter(p => p.groupId === activeGroup);
+      for (const mp of currentCluster) {
+        for (const other of pieces) {
+          if (other.groupId === activeGroup) continue;
+          const isNeighbor =
+            (Math.abs(mp.row - other.row) === 1 && mp.col === other.col) ||
+            (Math.abs(mp.col - other.col) === 1 && mp.row === other.row);
+
+          if (isNeighbor) {
+            const expectedX = other.x + (mp.col - other.col) * mp.pw;
+            const expectedY = other.y + (mp.row - other.row) * mp.ph;
+            if (Math.hypot(mp.x - expectedX, mp.y - expectedY) < snapDist) {
+              const dx = expectedX - mp.x;
+              const dy = expectedY - mp.y;
+              const targetGroup = other.groupId;
+              for (const p of currentCluster) {
+                p.x += dx;
+                p.y += dy;
+                p.groupId = targetGroup;
+              }
+              activeGroup = targetGroup;
+              merged = true;
+              break;
+            }
+          }
+        }
+        if (merged) break;
+      }
+    }
+
+    const firstGroup = pieces[0].groupId;
+    const allUnified = pieces.every(p => p.groupId === firstGroup);
+    if (allUnified && !isSolved) {
+      const dx = pieces[0].targetX - pieces[0].x;
+      const dy = pieces[0].targetY - pieces[0].y;
+      for (const p of pieces) {
+        p.x += dx;
+        p.y += dy;
+      }
+      isSolved = true;
+      stopCountdown();
+
+      // Lock in exact live countdown reward at completion moment
+      currentReward = computeCountdownReward(baseReward, elapsedSeconds, rows);
+      totalScore += currentReward;
+      saveTotalScore(totalScore);
+      updateScoreboardUI();
+
+      triggerWinFeedback();
+      winBanner.textContent = `Solved in ${elapsedSeconds}s! +${currentReward} pts (Total: ${totalScore})`;
+      winBanner.style.display = 'block';
+    }
+  }
+
+  // Reset score with two-tap guard so accidental taps don't wipe progress
+  resetScoreBtn.addEventListener('click', () => {
+    if (!resetScoreBtn.classList.contains('armed')) {
+      resetScoreBtn.classList.add('armed');
+      resetScoreBtn.textContent = 'Confirm Reset?';
+      clearTimeout(resetConfirmTimeout);
+      resetConfirmTimeout = setTimeout(() => {
+        resetScoreBtn.classList.remove('armed');
+        resetScoreBtn.textContent = 'Reset Score';
+      }, 3000);
+      return;
+    }
+
+    clearTimeout(resetConfirmTimeout);
+    resetScoreBtn.classList.remove('armed');
+    resetScoreBtn.textContent = 'Reset Score';
+
+    totalScore = 0;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {}
+    updateScoreboardUI();
+  });
+
+  newBtn.addEventListener('click', initPuzzle);
+  artSelect.addEventListener('change', initPuzzle);
+  gridSelect.addEventListener('change', initPuzzle);
+
+  previewBtn.addEventListener('click', () => {
+    previewModal.classList.toggle('active');
+  });
+  previewModal.addEventListener('click', () => {
+    previewModal.classList.remove('active');
+  });
+
+  window.addEventListener('resize', () => {
+    if (Math.abs(window.innerWidth - width) > 80) {
+      initPuzzle();
+    }
+  });
+
+  initPuzzle();
+})();
+</script>
+</body>
+</html>
+
