@@ -194,10 +194,36 @@ span#app-version {
 }
 
 @media (max-width: 600px) {
-  .controls.banner {
+  #app-name {
 	display: none;
   }
 }
+
+.controls.banner {
+	cursor: pointer;
+}
+
+  #aboutModal, #promoModal {
+    display: none;
+    position: fixed;
+    inset: 84px 0 0 0;
+    background: rgba(18, 20, 29, 0.92);
+    z-index: 90;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+  }
+  #aboutModal.active, #promoModal.active {
+    display: flex;
+  }
+  #aboutImg, #promoImg {
+    max-width: 90%;
+    max-height: 75%;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    border: 2px solid #3d455c;
+  }
 </style>
 
 </head>
@@ -245,6 +271,16 @@ span#app-version {
   <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to close preview</p>
 </div>
 
+<div id="aboutModal">
+  <img id="aboutImg" alt="About JIGSAWO" src="artworks/logo_brand.jpg">
+  <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to return to game</p>
+</div>
+
+<div id="promoModal">
+  <img id="promoImg" alt="More About JIGSAWO" src="artworks/promo_art.jpg">
+  <p style="color: var(--muted); font-size: 13px; margin-top: 12px;">Tap anywhere to return to game</p>
+</div>
+
 <canvas id="board"></canvas>
 
 <script>
@@ -258,7 +294,11 @@ span#app-version {
   const gridSelect = document.getElementById('gridSize');
   const newBtn = document.getElementById('newBtn');
   const previewBtn = document.getElementById('previewBtn');
+  const aboutBtn = document.getElementById('app-name');
+  const versionBtn = document.getElementById('app-version');
   const previewModal = document.getElementById('previewModal');
+  const aboutModal = document.getElementById('aboutModal');
+  const promoModal = document.getElementById('promoModal');
   const previewImg = document.getElementById('previewImg');
   const winBanner = document.getElementById('winBanner');
   const totalScoreEl = document.getElementById('totalScoreEl');
@@ -895,6 +935,19 @@ span#app-version {
   });
   previewModal.addEventListener('click', () => {
     previewModal.classList.remove('active');
+  });
+
+  aboutBtn.addEventListener('click', () => {
+    aboutModal.classList.toggle('active');
+  });
+  versionBtn.addEventListener('click', () => {
+    promoModal.classList.toggle('active');
+  });
+  aboutModal.addEventListener('click', () => {
+    aboutModal.classList.remove('active');
+  });
+  promoModal.addEventListener('click', () => {
+    promoModal.classList.remove('active');
   });
 
   window.addEventListener('resize', () => {
