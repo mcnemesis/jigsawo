@@ -22,6 +22,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="manifest" href="manifest.json">
+
 <style>
   :root {
     --bg: #12141d;
@@ -181,7 +182,24 @@
     z-index: 95;
     white-space: nowrap;
   }
+
+.controls.banner {
+	margin-right: auto;
+	font-style: oblique;
+	font-weight: bold;
+	text-shadow: 0 1px tomato;
+}
+span#app-version {
+    color: aqua;
+}
+
+@media (max-width: 600px) {
+  .controls.banner {
+	display: none;
+  }
+}
 </style>
+
 </head>
 <body>
 
@@ -200,6 +218,10 @@
         <option value="5">5×5 (25)</option>
         <option value="6">6×6 (36)</option>
       </select>
+    </div>
+    <div class="controls banner">
+        <span id="app-name" title="JIGSAWO is an entertaining offline-capable jigsaw puzzle brain game for kids and adults, using computer generated fractals and that works on web and mobile.">JIGSAWO</span>
+        <span id="app-version">v1.1</span>
     </div>
     <div class="controls">
       <button id="previewBtn">Peek</button>

@@ -1,7 +1,7 @@
 {
-  "id": "/index.html?game=jigsawo&v=1",
-  "name": "JIGSAWO puzzle brain game",
-  "short_name": "JIGSAWO",
+  "id": "/index.html?game=jigsawo&v=1.1",
+  "name": "JIGSAWO v1.1 puzzle brain game",
+  "short_name": "JIGSAWO v1.1",
   "start_url": "/index.html",
   "display": "standalone",
   "theme_color":"#ffffff",
